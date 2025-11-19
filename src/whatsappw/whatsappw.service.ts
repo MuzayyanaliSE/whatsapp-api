@@ -51,16 +51,26 @@ export class WhatsappwService {
     this.client.initialize();
   }
 
-  async getQrCode(): Promise<string | null> {
-    // if already logged in, no QR is needed
-    if (this.isReady) return null;
+  // ⬇️ FIXED VERSION
+  async getQrCode(timeoutMs = 15000): Promise<string | null> {
+    // If already logged in, no QR is needed
+    if (this.isReady) {
+      return null;
+    }
 
-    // lazily initialize the client ONLY when API is called
+    // Lazily initialize the client ONLY when API is called
     if (!this.client) {
       this.initializeClient();
     }
 
-    // Just return whatever QR we have right now
+    const start = Date.now();
+
+    // Wait for qrCodeDataUrl to be filled by the 'qr' event (up to timeoutMs)
+    while (!this.qrCodeDataUrl && Date.now() - start < timeoutMs) {
+      await new Promise((resolve) => setTimeout(resolve, 500)); // check every 500ms
+    }
+
+    // After waiting, either we have the QR or not
     return this.qrCodeDataUrl;
   }
 

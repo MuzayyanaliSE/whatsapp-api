@@ -13,7 +13,6 @@ import { ApiTags, ApiOperation, ApiBody } from '@nestjs/swagger';
 import { WhatsappwService } from './whatsappw.service';
 import { SendTextDto } from './dto/send-text.dto';
 
-
 @ApiTags('WhatsApp')
 @Controller('whatsapp')
 export class WhatsappController {
@@ -23,16 +22,23 @@ export class WhatsappController {
   @ApiOperation({ summary: 'Get QR code (PNG)' })
   async getQr(@Res() res: any) {
     const qr = await this.whatsapp.getQrCode();
+
     if (!qr) {
-      throw new HttpException('Already authenticated', HttpStatus.OK);
+      return res
+        .status(200)
+        .json({
+          message:
+            'Already authenticated or QR not ready yet. Try again if not logged in.',
+        });
     }
 
-    const img = Buffer.from(qr.split(',')[1], 'base64');
+    const base64 = qr.split(',')[1];
+    const img = Buffer.from(base64, 'base64');
     res.setHeader('Content-Type', 'image/png');
-    res.send(img);
+    return res.send(img);
   }
 
-   @Post('send-text')
+  @Post('send-text')
   @ApiOperation({ summary: 'Send WhatsApp text message' })
   @ApiBody({ type: SendTextDto })
   async sendText(@Body() body: SendTextDto) {
