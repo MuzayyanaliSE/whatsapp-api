@@ -4,17 +4,17 @@ import * as QRCode from 'qrcode';
 
 @Injectable()
 export class WhatsappwService {
-  private client: Client;
+  private client: Client | null = null;
   private qrCodeDataUrl: string | null = null;
   private isReady = false;
+  private initStarted = false; // prevent multiple initializations
 
   private readonly logger = new Logger(WhatsappwService.name);
 
-  constructor() {
-    this.initializeClient();
-  }
-
   private initializeClient() {
+    if (this.initStarted) return; // avoid re-init
+    this.initStarted = true;
+
     this.client = new Client({
       authStrategy: new LocalAuth({ clientId: 'my-whatsapp-session' }),
       puppeteer: {
@@ -31,7 +31,7 @@ export class WhatsappwService {
     this.client.on('ready', () => {
       this.logger.log('WhatsApp is ready!');
       this.isReady = true;
-      this.qrCodeDataUrl = null; // clear QR
+      this.qrCodeDataUrl = null; // clear QR after ready
     });
 
     this.client.on('authenticated', () => {
@@ -40,6 +40,8 @@ export class WhatsappwService {
 
     this.client.on('auth_failure', (msg) => {
       this.logger.error('AUTH ERROR: ' + msg);
+      this.isReady = false;
+      this.initStarted = false; // allow retry
     });
 
     this.client.on('message', (msg: Message) => {
@@ -50,23 +52,33 @@ export class WhatsappwService {
   }
 
   async getQrCode(): Promise<string | null> {
+    // if already logged in, no QR is needed
     if (this.isReady) return null;
+
+    // lazily initialize the client ONLY when API is called
+    if (!this.client) {
+      this.initializeClient();
+    }
+
+    // Just return whatever QR we have right now
     return this.qrCodeDataUrl;
   }
 
   async sendMessage(jid: string, message: string) {
-    if (!this.isReady) throw new Error('WhatsApp is not ready');
-    return this.client.sendMessage(jid, message);
+    if (!this.isReady) {
+      throw new Error('WhatsApp is not ready (not authenticated yet)');
+    }
+    return this.client!.sendMessage(jid, message);
   }
 
   async getChats() {
     if (!this.isReady) throw new Error('WhatsApp not ready');
-    return this.client.getChats();
+    return this.client!.getChats();
   }
 
   async getMessages(chatId: string, limit = 50) {
     if (!this.isReady) throw new Error('WhatsApp not ready');
-    const chat = await this.client.getChatById(chatId);
+    const chat = await this.client!.getChatById(chatId);
     return chat.fetchMessages({ limit });
   }
 }
