@@ -19,6 +19,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document); // Swagger at /docs
 
-  await app.listen(3001);
+  await app.listen(3000);
 }
 bootstrap();
